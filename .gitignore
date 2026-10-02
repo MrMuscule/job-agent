@@ -1,5 +1,35 @@
+# Виртуальное окружение
 .venv/
+venv/
+env/
+
+# Секреты
 .env
+
+# Локальная база и результаты
+data/
+*.db
+*.db-journal
+last_run.json
+
+# Python
 __pycache__/
-*.pyc
-jobs.db
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+
+# Playwright
+.pw-browser/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Резервные копии
+*.bak
