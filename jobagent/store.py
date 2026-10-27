@@ -192,11 +192,20 @@ class Store:
 
     # ── чтение ──
 
-    _SELECT = ("SELECT j.*, s.status AS status, s.notes AS notes, s.applied_at AS applied_at "
-               "FROM jobs j JOIN status s ON s.job_id = j.id ")
+    # rid (rowid) нужен для callback_data кнопок: лимит Telegram 64 байта, а slug длиннее
+    _SELECT = ("SELECT j.rowid AS rid, j.*, s.status AS status, s.notes AS notes, "
+               "s.applied_at AS applied_at FROM jobs j JOIN status s ON s.job_id = j.id ")
 
     def get(self, jid: str) -> sqlite3.Row | None:
         return self.conn.execute(self._SELECT + "WHERE j.id=?", (jid,)).fetchone()
+
+    def get_by_rid(self, rid: int) -> sqlite3.Row | None:
+        return self.conn.execute(self._SELECT + "WHERE j.rowid=?", (rid,)).fetchone()
+
+    def baseline_notified(self) -> None:
+        """Всё, что уже в базе, считаем отправленным (чтобы не завалить чат при первом запуске)."""
+        self.conn.execute("UPDATE jobs SET notified_at=? WHERE notified_at IS NULL", (now(),))
+        self.conn.commit()
 
     def find_by_url(self, url: str) -> sqlite3.Row | None:
         key = url_key(url)
