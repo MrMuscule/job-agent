@@ -1,283 +1,76 @@
+candidate:
+  name: Danylo Shylkov
+  experience_years: 2.5          # Huawei Polska с 05.2024
+  current_title: Infrastructure Support Engineer — Enterprise Storage & Telecom Platforms
+  languages: [english, polish, ukrainian, russian]
+
+# Поисковые запросы для Adzuna (источник не отдаёт всё подряд, нужны запросы)
 search:
   adzuna_queries:
-    - "infrastructure engineer"
-    - "platform engineer"
-    - "cloud infrastructure engineer"
-    - "systems engineer"
-    - "it infrastructure engineer"
     - "storage engineer"
-    - "linux engineer"
-    - "kubernetes engineer"
-    - "network engineer"
-  adzuna_where: ""
-  adzuna_pages: 1
-
-salary:
-  minimum: 12000
-  target: 16000
-  very_good: 20000
-
-seniority:
-  user_years: 3
-
-location:
-  preferred:
-    - "warszawa"
-    - "warsaw"
-    - "mazowieckie"
-    - "polska"
-  excluded:
-    - "kraków"
-    - "krakow"
-    - "katowice"
-    - "wrocław"
-    - "wroclaw"
-    - "poznań"
-    - "poznan"
-    - "gdańsk"
-    - "gdansk"
-    - "gdynia"
-    - "łódź"
-    - "lodz"
-    - "szczecin"
-    - "bydgoszcz"
-    - "lublin"
-    - "białystok"
-    - "rzeszów"
-    - "rzeszow"
-    - "toruń"
-    - "torun"
-    - "kielce"
-    - "olsztyn"
-    - "częstochowa"
-    - "czestochowa"
-    - "radom"
-    - "sosnowiec"
-  remote_markers:
-    - "fully remote"
-    - "100% remote"
-    - "100 % remote"
-    - "100% zdalna"
-    - "100 % zdalna"
-    - "fully-remote"
-    - "remote-first"
-    - "remote first"
-    - "praca w pełni zdalna"
-    - "w pełni zdalna"
-    - "w pełni zdalnie"
-    - "całkowicie zdalna"
-    - "fully remote position"
-    - "praca zdalna 100%"
-  warsaw_bonus: 5
-  remote_bonus: 3
-
-role_keywords:
-  strong:
-    - "infrastructure engineer"
-    - "platform engineer"
-    - "kubernetes engineer"
-    - "cloud infrastructure"
-    - "cloud platform"
-    - "it infrastructure"
-    - "systems engineer"
-    - "system engineer"
-    - "site reliability"
-    - "sre"
-    - "it operations"
-    - "data center engineer"
-    - "datacenter engineer"
-    - "infrastructure administrator"
-    - "storage engineer"
-    - "linux engineer"
-    - "virtualization engineer"
-    - "network engineer"
-    - "network administrator"
-    - "network & infrastructure"
-    - "network and infrastructure"
-    - "noc engineer"
-    - "network operations"
-  medium:
-    - "devops"
-    - "cloud engineer"
-    - "storage administrator"
     - "linux administrator"
     - "system administrator"
-    - "systems administrator"
-    - "backup administrator"
+    - "infrastructure engineer"
+    - "noc engineer"
     - "technical support engineer"
-    - "support engineer"
+    - "administrator systemów"
+    - "data center engineer"
+  adzuna_pages: 1
 
-reject_role_keywords:
-  - "software developer"
-  - "software engineer"
-  - "frontend developer"
-  - "front-end developer"
-  - "backend developer"
-  - "back-end developer"
-  - "full stack"
-  - "fullstack"
-  - "mobile developer"
-  - "android developer"
-  - "ios developer"
-  - "data analyst"
-  - "data scientist"
-  - "data engineer"
-  - "qa engineer"
-  - "qa analyst"
-  - "test engineer"
-  - "test automation"
-  - "sales representative"
-  - "account manager"
-  - "sales manager"
-  - "helpdesk"
-  - "help desk"
-  - "desktop support"
-  - "service desk"
-  - "cybersecurity specialist"
-  - "security analyst"
-  - "soc analyst"
-  - "penetration tester"
-  - "product manager"
-  - "project manager"
-  - "business analyst"
-  - "scrum master"
-
-penalty_keywords:
-  - "on-site only"
-  - "must be fluent in german"
-  - "must be fluent in french"
-  - "call center"
-
-seniority_keywords:
-  junior:
-    - "junior"
-    - "trainee"
-    - "intern"
-    - "graduate"
-  match:
-    - "regular"
-    - "mid"
-    - "associate"
-    - "engineer ii"
-    - "engineer 2"
-    - "specialist"
-  senior:
-    - "senior"
-    - "sr."
-    - "sr "
-    - "lead"
-  overqualified:
-    - "principal"
-    - "staff engineer"
-    - "architect"
-    - "head of"
-    - "director"
-    - "chief"
-    - "vp "
-    - "vice president"
+# Чем выше вес, тем выше вакансия в топе
+target_roles:
+  - {weight: 10, patterns: ["storage engineer", "storage administrator", "san engineer", "storage specialist", "backup engineer", "administrator macierzy", "inżynier storage"]}
+  - {weight: 9,  patterns: ["linux administrator", "linux system administrator", "linux engineer", "system administrator", "systems engineer", "administrator systemów", "administrator linux"]}
+  - {weight: 8,  patterns: ["infrastructure engineer", "infrastructure specialist", "data center engineer", "datacenter", "virtualization engineer", "vmware"]}
+  - {weight: 7,  patterns: ["noc engineer", "l2 support", "second line", "2nd line", "technical support engineer", "application support", "production support", "telecom", "oss/bss", "charging"]}
+  - {weight: 5,  patterns: ["cloud support", "cloud engineer", "junior devops", "devops engineer", "site reliability", "platform engineer"]}
 
 skills:
-  network:
-    - "lan"
-    - "wan"
-    - "wi-fi"
-    - "wifi"
-    - "firewall"
-    - "dns"
-    - "tls"
-    - "tcp/ip"
-    - "tcp"
-    - "udp"
-    - "vlan"
-    - "trunk"
-    - "arp"
-    - "bgp"
-    - "ospf"
-    - "ssh"
-    - "https"
-    - "smtp"
-    - "vpn"
-    - "sd-wan"
-    - "routing"
-    - "switching"
-    - "dhcp"
-    - "nat"
-    - "subnet"
-    - "wireshark"
-  infra:
-    - "linux"
-    - "ubuntu"
-    - "sles"
-    - "debian"
-    - "systemd"
-    - "bash"
-    - "shell"
-    - "python"
-    - "windows server"
-    - "nginx"
-    - "docker"
-    - "kubernetes"
-    - "k8s"
-    - "swr"
-    - "git"
-    - "github actions"
-    - "gitlab"
-    - "terraform"
-    - "ansible"
-    - "saltstack"
-    - "ci/cd"
-    - "monitoring"
-    - "prometheus"
-    - "grafana"
-    - "zabbix"
-    - "itsm"
-    - "itil"
-    - "active directory"
-    - "azure"
-    - "aws"
-    - "gcp"
-    - "cloudflare"
-    - "load balancer"
-    - "netscaler"
-    - "solarwinds"
-  storage:
-    - "storage"
-    - "san"
-    - "nas"
-    - "fibre channel"
-    - "iscsi"
-    - "nvme"
-    - "raid"
-    - "oceanstor"
-    - "dorado"
-    - "netapp"
-    - "dell emc"
-    - "emc"
-    - "pure storage"
-    - "hitachi"
-    - "ceph"
-    - "backup"
-    - "veeam"
-    - "bacula"
-    - "drbd"
-    - "virtualization"
-    - "vmware"
-    - "hyper-v"
-    - "fusioncompute"
-    - "vmtools"
-    - "proxmox"
-    - "kvm"
-    - "lxc"
-  huawei:
-    - "huawei"
-    - "smartkit"
-    - "digitalview"
-    - "device manager"
-    - "dmeiq"
-    - "dme iq"
-    - "nslb"
-    - "cbs"
-    - "sph"
-    - "hcia"
-    - "hcsa"
-    - "huawei cloud"
+  strong:     # то, что есть в CV и в работе (+3 за каждое совпадение, максимум +15)
+    [san, nas, "fibre channel", " fc ", iscsi, nvme, raid, lun, storage, huawei, oceanstor, netapp, "dell emc", "pure storage", hitachi, "ibm svc", brocade,
+     linux, ubuntu, suse, rhel, bash, systemd, ntp, virtualization, fusioncompute, hyper-v,
+     docker, ansible, "github actions", git, prometheus, grafana, nginx, python,
+     tcp/ip, dns, vlan, vpn, firewall, wireshark,
+     itil, itsm, incident, "change management", "on-call", maintenance, upgrade, cve, patching]
+  learning:   # уже изучаю, не должно отсеивать (+1)
+    [kubernetes, terraform, postgresql, kafka, zabbix, aws, azure, gcp, vmware, veeam, commvault]
+  gaps:       # если это ГЛАВНОЕ требование, ставь штраф -5, но не отсеивай
+    [java, ".net", "react", "frontend", "machine learning", "sap abap", "salesforce"]
+
+seniority:
+  ok: [junior, regular, mid, "mid/senior", specialist]
+  penalty: [senior, lead, principal, architect, head, manager]   # -8
+  max_years_required: 4        # «5+ years» → -6
+
+exclude_titles:   # такие вакансии не показывать вообще
+  [developer, programista, frontend, backend developer, "data scientist", "data analyst",
+   sales, "account manager", recruiter, "1st line", helpdesk, "service desk", "call center", intern, praktyk]
+
+salary:   # в PLN за месяц
+  min_uop_gross: 13000
+  min_b2b_net: 16000           # B2B без оплачиваемого отпуска + ZUS, поэтому выше
+  # Сравнивай с ВЕРХНЕЙ границей вилки: если верх вилки < минимума → вакансию не показывать.
+  # Если вилка перекрывает минимум (напр. 11–15k) → показывать без штрафа.
+  # Вилка в EUR/USD → переводи в PLN; почасовая ставка × 168 = месяц.
+  below_min: exclude
+  no_salary_listed: 0          # без вилки — показывать, не штрафовать (в Польше ~половина вакансий без вилки)
+  above_target_bonus: {from_uop_gross: 15000, from_b2b_net: 18000, points: 4}
+
+location:
+  home: warszawa
+  accept: [warszawa, warsaw, remote, zdalnie, "fully remote", "praca zdalna", hybrid, hybrydowo]
+  far_onsite_penalty: -10      # стационарно в другом городе
+
+bonus:
+  - {pattern: "ukrainian|ukraiński|russian|rosyjski", points: 5, why: "редкий язык — твоё преимущество"}
+  - {pattern: "huawei|oceanstor|telecom|operator", points: 4, why: "прямой опыт"}
+  - {pattern: "bank|banking|finance", points: 2, why: "банки много нанимают storage/linux"}
+
+# Настройки бота (не часть профиля кандидата)
+bot:
+  weekly_applied_goal: 10
+  push_min_score: 25
+  collect_every_hours: 3
+  followup_days: 7
+  eur_pln: 4.30
+  usd_pln: 3.90
