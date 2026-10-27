@@ -1,9 +1,10 @@
 """
 JOB-AGENT — deterministic job search pipeline + SQLite storage.
 
+Источники: Adzuna + JustJoin.it
 Профиль: Infrastructure / Platform Engineer (Kubernetes, Storage, Linux).
 Уровень: mid / regular (не senior).
-Локация: Warszawa + full-remote.
+Локация: Warszawa + окрестности + full-remote (ПОЛЬША).
 """
 from __future__ import annotations
 
@@ -24,6 +25,7 @@ from rich.console import Console
 from rich.table import Table
 
 from db import Store, job_id, VALID_STATUSES
+from justjoin import fetch_justjoin
 
 load_dotenv()
 
@@ -42,6 +44,137 @@ DATA_DIR = HERE / "data"
 DATA_DIR.mkdir(exist_ok=True)
 
 
+# ────────────────────────────────────────────────────────────────────────
+# Локация
+# ────────────────────────────────────────────────────────────────────────
+
+LOCATION_WHITELIST = (
+    "warszawa", "warsaw", "mazowieckie",
+    "piaseczno", "raszyn", "pruszków", "pruszkow",
+    "legionowo", "marki", "otwock", "wołomin", "wolomin",
+    "żyrardów", "zyrardow", "nowy dwór mazowiecki", "nowy dwor mazowiecki",
+    "siedlce", "radom", "płock", "plock", "ciechanów", "ciechanow",
+    "kraków", "krakow", "katowice", "wrocław", "wroclaw",
+    "poznań", "poznan", "gdańsk", "gdansk", "gdynia", "sopot",
+    "łódź", "lodz", "szczecin", "bydgoszcz", "lublin",
+    "białystok", "bialystok", "rzeszów", "rzeszow",
+    "toruń", "torun", "kielce", "olsztyn",
+    "częstochowa", "czestochowa", "sosnowiec", "gliwice", "zabrze",
+    "polska", "poland",
+)
+
+LOCATION_FAR_FROM_WARSAW = (
+    "kraków", "krakow", "katowice", "wrocław", "wroclaw",
+    "poznań", "poznan", "gdańsk", "gdansk", "gdynia", "sopot",
+    "łódź", "lodz", "szczecin", "bydgoszcz", "lublin",
+    "białystok", "bialystok", "rzeszów", "rzeszow",
+    "toruń", "torun", "kielce", "olsztyn",
+    "częstochowa", "czestochowa", "sosnowiec", "gliwice", "zabrze",
+)
+
+_WORK_MODE_PREFIXES = ("remote", "hybrid", "office", "zdalna", "zdalnie",
+                       "hybrydowa", "stacjonarna", "praca zdalna")
+
+
+def _normalize_location(loc: str) -> str:
+    if not loc:
+        return ""
+    s = loc.strip().lower()
+    for prefix in _WORK_MODE_PREFIXES:
+        if s.startswith(prefix + ","):
+            s = s[len(prefix) + 1:].strip()
+            break
+        if s.startswith(prefix + " "):
+            s = s[len(prefix) + 1:].strip()
+            break
+    return s
+
+
+def _is_warsaw(job) -> bool:
+    loc_l = _normalize_location(job.location)
+    markers = (
+        "warszawa", "warsaw", "mazowieckie",
+        "piaseczno", "raszyn", "pruszków", "pruszkow",
+        "legionowo", "marki", "otwock", "wołomin", "wolomin",
+    )
+    return any(tok in loc_l for tok in markers)
+
+
+def _is_poland_generic(job) -> bool:
+    loc_l = _normalize_location(job.location)
+    return "polska" in loc_l or "poland" in loc_l or loc_l == ""
+
+
+def _is_in_whitelist(job) -> bool:
+    loc_l = _normalize_location(job.location)
+    if not loc_l:
+        return True
+    return any(city in loc_l for city in LOCATION_WHITELIST)
+
+
+def _is_far_polish_city(job) -> str | None:
+    loc_l = _normalize_location(job.location)
+    for city in LOCATION_FAR_FROM_WARSAW:
+        if city in loc_l:
+            return city
+    return None
+
+
+def _is_fully_remote(job, profile: dict) -> str | None:
+    loc_cfg = profile.get("location") or {}
+    markers = loc_cfg.get("remote_markers") or []
+    text_l = f"{job.title}\n{job.description}".lower()
+    for m in markers:
+        if m and m.lower() in text_l:
+            return m
+    return None
+
+
+def _location_reject(job, profile: dict) -> tuple[bool, str]:
+    loc_l = _normalize_location(job.location)
+
+    if _is_fully_remote(job, profile):
+        return False, ""
+
+    if loc_l and not _is_in_whitelist(job):
+        return True, f"локация не Польша: '{job.location}'"
+
+    far_city = _is_far_polish_city(job)
+    if far_city:
+        return True, f"далёкий город: '{far_city}'"
+
+    if _is_warsaw(job) or _is_poland_generic(job):
+        return False, ""
+
+    return False, ""
+
+
+def _location_score(job, profile: dict, b: "Breakdown") -> int:
+    loc_cfg = profile.get("location") or {}
+    warsaw_bonus = int(loc_cfg.get("warsaw_bonus", 5))
+    remote_bonus = int(loc_cfg.get("remote_bonus", 3))
+
+    if _is_warsaw(job):
+        b.notes.append(f"location=+{warsaw_bonus} (Warszawa)")
+        return warsaw_bonus
+
+    marker = _is_fully_remote(job, profile)
+    if marker:
+        b.notes.append(f"location=+{remote_bonus} (full remote: '{marker}')")
+        return remote_bonus
+
+    if _is_poland_generic(job):
+        b.notes.append("location=0 (Polska — общенац.)")
+        return 0
+
+    b.notes.append(f"location=0 ({job.location or '—'})")
+    return 0
+
+
+# ────────────────────────────────────────────────────────────────────────
+# Модель данных
+# ────────────────────────────────────────────────────────────────────────
+
 @dataclass
 class Job:
     source: str
@@ -53,6 +186,7 @@ class Job:
     salary_min: float | None = None
     salary_max: float | None = None
     salary_text: str = ""
+    level: str = ""
     raw: dict = field(default_factory=dict)
 
 
@@ -94,13 +228,6 @@ def _has_kw(text_lower: str, kw: str) -> bool:
     return bool(_kw_re(kw).search(text_lower))
 
 
-def _has_any(text_lower: str, markers) -> str | None:
-    for m in (markers or []):
-        if m and m.lower() in text_lower:
-            return m
-    return None
-
-
 # ────────────────────────────────────────────────────────────────────────
 # Adzuna
 # ────────────────────────────────────────────────────────────────────────
@@ -132,7 +259,7 @@ async def collect_adzuna(client: httpx.AsyncClient, profile: dict) -> list[Job]:
     app_id = os.getenv("ADZUNA_APP_ID")
     app_key = os.getenv("ADZUNA_APP_KEY")
     if not app_id or not app_key:
-        console.print("[yellow]Adzuna: ADZUNA_APP_ID/ADZUNA_APP_KEY отсутствуют.[/yellow]")
+        console.print("[yellow]Adzuna: ключи отсутствуют.[/yellow]")
         return []
 
     cfg = profile.get("search") or {}
@@ -230,6 +357,35 @@ def _normalize_adzuna(r: dict) -> Job:
     )
 
 
+# ────────────────────────────────────────────────────────────────────────
+# JustJoin
+# ────────────────────────────────────────────────────────────────────────
+
+async def collect_justjoin(profile: dict) -> list[Job]:
+    raw = await fetch_justjoin(max_pages=30)
+    console.print(f"[cyan]JustJoin:[/cyan] {len(raw)}")
+    out: list[Job] = []
+    for r in raw:
+        out.append(Job(
+            source="justjoin",
+            title=(r.get("title") or "").strip(),
+            company=(r.get("company") or "").strip(),
+            location=(r.get("location") or "").strip(),
+            description=(r.get("description") or "").strip(),
+            url=(r.get("url") or "").strip(),
+            salary_min=r.get("salary_min"),
+            salary_max=r.get("salary_max"),
+            salary_text=(r.get("salary_text") or "").strip(),
+            level=(r.get("level") or "").strip().lower(),
+            raw=r,
+        ))
+    return out
+
+
+# ────────────────────────────────────────────────────────────────────────
+# Dedupe
+# ────────────────────────────────────────────────────────────────────────
+
 _WS = re.compile(r"\s+")
 
 
@@ -268,70 +424,6 @@ def dedupe(jobs: list[Job]) -> list[Job]:
         if tk[0] and tk[1]:
             by_tc[tk] = job
     return out
-
-
-# ────────────────────────────────────────────────────────────────────────
-# Location
-# ────────────────────────────────────────────────────────────────────────
-
-def _is_fully_remote(job: Job, profile: dict) -> str | None:
-    loc_cfg = profile.get("location") or {}
-    markers = loc_cfg.get("remote_markers") or []
-    text_l = f"{job.title}\n{job.description}".lower()
-    return _has_any(text_l, markers)
-
-
-def _is_warsaw(job: Job, profile: dict) -> bool:
-    loc_l = (job.location or "").lower()
-    return any(tok in loc_l for tok in ("warszawa", "warsaw", "mazowieckie"))
-
-
-def _location_reject(job: Job, profile: dict) -> tuple[bool, str]:
-    loc_cfg = profile.get("location") or {}
-    excluded = [e.lower() for e in (loc_cfg.get("excluded") or [])]
-    if not excluded:
-        return False, ""
-
-    if _is_fully_remote(job, profile):
-        return False, ""
-    if _is_warsaw(job, profile):
-        return False, ""
-
-    loc_l = (job.location or "").lower()
-    if "polska" in loc_l:
-        return False, ""
-
-    hit = next((e for e in excluded if e in loc_l), None)
-    if hit:
-        return True, f"локация '{hit}' (не full-remote)"
-
-    return False, ""
-
-
-def _location_score(job: Job, profile: dict, b: Breakdown) -> int:
-    loc_cfg = profile.get("location") or {}
-    if not loc_cfg:
-        return 0
-
-    warsaw_bonus = int(loc_cfg.get("warsaw_bonus", 5))
-    remote_bonus = int(loc_cfg.get("remote_bonus", 3))
-
-    if _is_warsaw(job, profile):
-        b.notes.append(f"location=+{warsaw_bonus} (Warszawa)")
-        return warsaw_bonus
-
-    marker = _is_fully_remote(job, profile)
-    if marker:
-        b.notes.append(f"location=+{remote_bonus} (full remote: '{marker}')")
-        return remote_bonus
-
-    loc_l = (job.location or "").lower()
-    if "polska" in loc_l:
-        b.notes.append("location=0 (Polska — общенац.)")
-        return 0
-
-    b.notes.append(f"location=0 ({job.location or '—'})")
-    return 0
 
 
 # ────────────────────────────────────────────────────────────────────────
@@ -394,6 +486,15 @@ _SOFTWARE_MARKERS = (
     "ai platform", "ml platform",
 )
 
+_DEVOPS_CLOUD_MARKERS = (
+    "devops aws", "devops azure", "devops gcp",
+    "aws devops", "azure devops", "gcp devops",
+    "cloud devops", "devops cloud",
+    "devops engineer azure", "devops engineer aws", "devops engineer gcp",
+    "devops (azure)", "devops (aws)", "devops (gcp)",
+    "devops/cloud", "cloud/devops",
+)
+
 
 def score_job(job: Job, profile: dict) -> Breakdown:
     b = Breakdown()
@@ -409,16 +510,20 @@ def score_job(job: Job, profile: dict) -> Breakdown:
     strong_desc = next((kw for kw in strong if _has_kw(text_l, kw)), None)
 
     is_software = any(m in title_l for m in _SOFTWARE_MARKERS)
+    is_devops_cloud = any(m in title_l for m in _DEVOPS_CLOUD_MARKERS)
 
-    if strong_title and is_software:
+    if strong_title and (is_software or is_devops_cloud):
         b.role = 16
-        b.notes.append(f"role=16 (title '{strong_title}', specialty/software контекст)")
+        b.notes.append(f"role=16 (title '{strong_title}', specialty/software/devops-cloud)")
     elif strong_title:
         b.role = 40
         b.notes.append(f"role=40 (title: '{strong_title}')")
     elif medium_title and is_software:
         b.role = 8
-        b.notes.append(f"role=8 (title '{medium_title}', specialty/software контекст)")
+        b.notes.append(f"role=8 (title '{medium_title}', specialty/software)")
+    elif medium_title and is_devops_cloud:
+        b.role = 10
+        b.notes.append(f"role=10 (title '{medium_title}', devops-cloud)")
     elif medium_title:
         b.role = 24
         b.notes.append(f"role=24 (title: '{medium_title}')")
@@ -466,6 +571,19 @@ def _seniority_score(job: Job, profile: dict, text_l: str, b: Breakdown) -> int:
     user_years = int((profile.get("seniority") or {}).get("user_years", 3))
     title_l = job.title.lower()
 
+    # 1. JustJoin level
+    level = (job.level or "").lower().strip()
+    if level in ("senior", "lead", "principal", "staff"):
+        b.notes.append(f"seniority=-8 (JustJoin: {level})")
+        return -8
+    if level == "junior":
+        b.notes.append("seniority=-5 (JustJoin: junior)")
+        return -5
+    if level in ("mid", "regular", "middle"):
+        b.notes.append("seniority=+15 (JustJoin: mid)")
+        return 15
+
+    # 2. "N+ years"
     required = None
     for m in _YEARS_RE.finditer(text_l):
         v = int(m.group(1))
@@ -488,29 +606,27 @@ def _seniority_score(job: Job, profile: dict, text_l: str, b: Breakdown) -> int:
         b.notes.append(f"seniority=0 (требует {required}+ лет)")
         return 0
 
+    # 3. По title
     sen = profile.get("seniority_keywords") or {}
+    over = sen.get("overqualified") or []
+    senior = sen.get("senior") or []
     junior = sen.get("junior") or []
     match = sen.get("match") or []
-    senior = sen.get("senior") or []
-    over = sen.get("overqualified") or []
 
     if any(_has_kw(title_l, kw) for kw in over):
         b.notes.append("seniority=-15 (principal/architect/head)")
         return -15
-
     if any(_has_kw(title_l, kw) for kw in senior):
         b.notes.append("seniority=-8 (senior/lead в title)")
         return -8
-
     if any(_has_kw(title_l, kw) for kw in junior):
         b.notes.append("seniority=-5 (junior в title)")
         return -5
-
     if any(_has_kw(title_l, kw) for kw in match):
         b.notes.append("seniority=+15 (mid/regular)")
         return 15
 
-    b.notes.append("seniority=+12 (без уровня в title → mid)")
+    b.notes.append("seniority=+12 (без уровня → mid)")
     return 12
 
 
@@ -580,6 +696,13 @@ async def collect_all(profile: dict) -> list[Job]:
         adz = await collect_adzuna(client, profile)
         console.print(f"[cyan]Adzuna:[/cyan] {len(adz)}")
         jobs.extend(adz)
+
+    try:
+        jj = await collect_justjoin(profile)
+        jobs.extend(jj)
+    except Exception as e:
+        console.print(f"[yellow]JustJoin failed: {e}[/yellow]")
+
     return jobs
 
 
@@ -597,9 +720,17 @@ def process_jobs(raw_jobs: list[Job], profile: dict) -> tuple[list[Job], int]:
 
 
 async def run_pipeline_quiet(profile: dict, store: Store) -> list[ScoredJob]:
+    jobs: list[Job] = []
     async with httpx.AsyncClient() as client:
         adz = await collect_adzuna(client, profile)
-    kept, _ = process_jobs(adz, profile)
+        jobs.extend(adz)
+    try:
+        jj = await collect_justjoin(profile)
+        jobs.extend(jj)
+    except Exception as e:
+        print(f"[warn] JustJoin failed: {e}")
+
+    kept, _ = process_jobs(jobs, profile)
     scored: list[ScoredJob] = []
     for j in kept:
         b = score_job(j, profile)
@@ -646,10 +777,22 @@ async def run_pipeline(profile: dict, store: Store) -> None:
     save_json(scored)
 
 
+# ────────────────────────────────────────────────────────────────────────
+# Render
+# ────────────────────────────────────────────────────────────────────────
+
+_SRC_LABEL = {"adzuna": "Adz", "justjoin": "JJ"}
+
+
+def _src_short(source: str) -> str:
+    return _SRC_LABEL.get(source, source[:3])
+
+
 def print_table(scored: list[ScoredJob]) -> None:
     table = Table(title=f"Top {len(scored)}", show_lines=False)
     table.add_column("#", justify="right", style="dim")
     table.add_column("Score", justify="right", style="bold green")
+    table.add_column("Src", style="cyan")
     table.add_column("St", justify="left", style="magenta")
     table.add_column("Title")
     table.add_column("Company")
@@ -660,8 +803,8 @@ def print_table(scored: list[ScoredJob]) -> None:
         b = s.breakdown
         st = "NEW" if s.is_new else s.status[:4]
         table.add_row(
-            str(i), str(s.total), st,
-            s.job.title[:60], s.job.company[:30], s.job.location[:30],
+            str(i), str(s.total), _src_short(s.job.source), st,
+            s.job.title[:55], s.job.company[:25], s.job.location[:25],
             f"{b.role}/{b.tech}/{b.seniority}/{b.salary}/{b.location}/{b.penalties}",
         )
     console.print(table)
@@ -674,7 +817,8 @@ def print_details(scored: list[ScoredJob], n: int = 10) -> None:
         st = "NEW" if s.is_new else s.status
         console.print(
             f"\n[bold cyan]{i}. {s.job.title}[/bold cyan]  "
-            f"[bold green]{s.total}[/bold green]  [magenta]{st}[/magenta]"
+            f"[bold green]{s.total}[/bold green]  "
+            f"[magenta]{st}[/magenta]  [cyan]{s.job.source}[/cyan]"
         )
         console.print(f"   [dim]{s.job.company} — {s.job.location}[/dim]")
         console.print(f"   [link]{s.job.url}[/link]")
@@ -701,6 +845,7 @@ def save_json(scored: list[ScoredJob]) -> None:
                 "salary_min": s.job.salary_min,
                 "salary_max": s.job.salary_max,
                 "salary_text": s.job.salary_text,
+                "level": s.job.level,
             },
             "breakdown": asdict(s.breakdown),
             "total": s.total,
@@ -712,6 +857,10 @@ def save_json(scored: list[ScoredJob]) -> None:
     console.print(f"[dim]saved → {path}[/dim]")
 
 
+# ────────────────────────────────────────────────────────────────────────
+# CLI commands
+# ────────────────────────────────────────────────────────────────────────
+
 def cmd_list_new(store: Store) -> None:
     rows = store.list_new_since_last_run(limit=100)
     if not rows:
@@ -719,13 +868,15 @@ def cmd_list_new(store: Store) -> None:
         return
     table = Table(title=f"New ({len(rows)})")
     table.add_column("#", justify="right", style="dim")
+    table.add_column("Src", style="cyan")
     table.add_column("Title")
     table.add_column("Company")
     table.add_column("Location")
     table.add_column("First seen", style="dim")
     for i, r in enumerate(rows, 1):
-        table.add_row(str(i), r["title"][:60], (r["company"] or "")[:30],
-                      (r["location"] or "")[:30], r["first_seen"][:10])
+        table.add_row(str(i), (r["source"] or "")[:3], r["title"][:55],
+                      (r["company"] or "")[:25], (r["location"] or "")[:25],
+                      r["first_seen"][:10])
     console.print(table)
 
 
@@ -736,11 +887,13 @@ def cmd_list_status(store: Store, status: str) -> None:
         return
     table = Table(title=f"{status} ({len(rows)})")
     table.add_column("#", justify="right", style="dim")
+    table.add_column("Src", style="cyan")
     table.add_column("Title")
     table.add_column("Company")
     table.add_column("URL", style="dim")
     for i, r in enumerate(rows, 1):
-        table.add_row(str(i), r["title"][:50], (r["company"] or "")[:25], r["url"][:60])
+        table.add_row(str(i), (r["source"] or "")[:3], r["title"][:50],
+                      (r["company"] or "")[:25], r["url"][:60])
     console.print(table)
 
 

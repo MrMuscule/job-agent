@@ -1,14 +1,5 @@
 """
 SQLite storage для job-agent.
-
-Таблицы:
-  jobs    — все вакансии, что мы видели
-  scores  — история скоринга
-  status  — состояние по вакансии (NEW/SEEN/APPLIED/...)
-
-URL Adzuna содержит session-токены (utm_source, se, v), которые меняются
-между запусками. Поэтому job_id строится на числовом ID вакансии, а не на
-полном URL.
 """
 from __future__ import annotations
 
@@ -65,7 +56,6 @@ CREATE INDEX IF NOT EXISTS idx_jobs_last_seen ON jobs(last_seen);
 VALID_STATUSES = ("NEW", "SEEN", "SHORTLIST", "APPLIED",
                   "REJECTED", "INTERVIEW", "OFFER")
 
-# Числовой ID вакансии в URL Adzuna: /details/5876475415 или /land/ad/5876475415
 _NUMERIC_ID_RE = re.compile(r"/(\d{6,})(?:[/?#]|$)")
 
 
@@ -74,7 +64,6 @@ def _now() -> str:
 
 
 def _extract_numeric_id(url: str) -> str | None:
-    """Достаёт стабильный числовой ID вакансии из URL Adzuna."""
     if not url:
         return None
     m = _NUMERIC_ID_RE.search(url)
@@ -82,19 +71,12 @@ def _extract_numeric_id(url: str) -> str | None:
 
 
 def _url_key(url: str) -> str:
-    """Нормализованный URL: без query/fragment, lowercase, без trailing slash."""
     if not url:
         return ""
     return url.strip().lower().split("#")[0].split("?")[0].rstrip("/")
 
 
 def job_id(url: str, title: str, company: str) -> str:
-    """Стабильный id вакансии.
-
-    Приоритет:
-      1. Числовой ID из URL Adzuna — не зависит от session-токенов.
-      2. Fallback — нормализованный URL + title + company.
-    """
     num = _extract_numeric_id(url)
     if num:
         raw = f"adzuna:{num}"
@@ -115,10 +97,7 @@ class Store:
     def close(self):
         self.conn.close()
 
-    # ── jobs ────────────────────────────────────────────────────────────
-
     def upsert_job(self, job) -> tuple[str, bool]:
-        """Возвращает (job_id, is_new)."""
         jid = job_id(job.url, job.title, job.company)
         now = _now()
         row = self.conn.execute("SELECT first_seen FROM jobs WHERE id=?", (jid,)).fetchone()
@@ -158,8 +137,6 @@ class Store:
         )
         self.conn.commit()
 
-    # ── status ──────────────────────────────────────────────────────────
-
     def set_status(self, jid: str, status: str, notes: str = "") -> None:
         status = status.upper()
         if status not in VALID_STATUSES:
@@ -179,11 +156,7 @@ class Store:
         row = self.conn.execute("SELECT status FROM status WHERE job_id=?", (jid,)).fetchone()
         return row["status"] if row else "NEW"
 
-    # ── queries ─────────────────────────────────────────────────────────
-
     def find_job_by_url(self, url: str) -> sqlite3.Row | None:
-        """Ищет вакансию по URL. Игнорирует query-параметры и session-токены."""
-        # 1. По нормализованному URL (без query)
         key = _url_key(url)
         if key:
             row = self.conn.execute(
@@ -192,8 +165,6 @@ class Store:
             ).fetchone()
             if row:
                 return row
-
-        # 2. По числовому ID вакансии — работает даже если в БД URL с другими query
         num = _extract_numeric_id(url)
         if num:
             row = self.conn.execute(
@@ -202,11 +173,8 @@ class Store:
             ).fetchone()
             if row:
                 return row
-
-        # 3. По job_id — на случай, если передан уже хэш
         if len(url) == 16 and all(c in "0123456789abcdef" for c in url.lower()):
             return self.conn.execute("SELECT * FROM jobs WHERE id=?", (url.lower(),)).fetchone()
-
         return None
 
     def list_by_status(self, status: str, limit: int = 100) -> list[sqlite3.Row]:
@@ -219,7 +187,6 @@ class Store:
         ).fetchall()
 
     def list_new_since_last_run(self, limit: int = 50) -> list[sqlite3.Row]:
-        """Вакансии, у которых first_seen = last_seen (появились только что)."""
         return self.conn.execute(
             """SELECT j.*, s.status AS job_status
             FROM jobs j JOIN status s ON s.job_id = j.id
@@ -242,7 +209,6 @@ class Store:
         return {"total_jobs": total, "by_status": by_status, "last_score_at": last_run}
 
     def mark_stale_as_closed(self, days: int = 14) -> int:
-        """Вакансии, не появлявшиеся N дней, — помечаем REJECTED (если статус SEEN)."""
         cutoff = datetime.now(timezone.utc).timestamp() - days * 86400
         cur = self.conn.execute(
             """UPDATE status SET status='REJECTED', updated_at=?
