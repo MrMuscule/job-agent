@@ -7,7 +7,7 @@ env/
 .env
 
 # Локальная база и результаты
-data/
+data/*
 *.db
 *.db-journal
 last_run.json

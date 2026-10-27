@@ -17,6 +17,7 @@ from telegram.ext import (Application, CallbackQueryHandler, CommandHandler,
                           ContextTypes)
 
 from .config import env, load_profile, owner_chat_id
+from .cv import CV_PATH, highlights, load_cv
 from .pipeline import CollectResult, collect
 from .store import HIDDEN_STATUSES, VALID_STATUSES, Store
 
@@ -74,6 +75,10 @@ def card(row, idx: int | None = None, total: int | None = None) -> str:
         f"🎯 <b>score {row['score']}</b>",
     ]
     lines += [f"   • {esc(r)}" for r in reasons_of(row)]
+    hl = highlights(f"{row['title']}\n{row['description'] or ''}")
+    if hl:
+        lines.append("📌 <b>Акцент в CV:</b>")
+        lines += [f"   • {esc(h)}" for h in hl]
     return "\n".join(lines)
 
 
@@ -368,22 +373,22 @@ async def cmd_mark(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def cmd_cv(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     p = load_profile()
     c = p["candidate"]
-    roles = []
-    for r in sorted(p["target_roles"], key=lambda r: -r["weight"])[:3]:
-        roles.append(f"{r['patterns'][0]} ({r['weight']})")
-    strong = [s.strip() for s in p["skills"]["strong"]][:18]
     sal = p["salary"]
+    cv = load_cv()
+    if cv is None:
+        await update.message.reply_text(f"Нет файла {CV_PATH.name} — положи CV в data/cv.md")
+        return
+    skills = "\n".join(f"  • <b>{esc(k)}:</b> {esc(v[:110] + ('…' if len(v) > 110 else ''))}"
+                       for k, v in cv.skills[:4])
     text = (
-        f"👤 <b>{esc(c['name'])}</b>\n"
-        f"{esc(c['current_title'])}\n"
-        f"Опыт: {c['experience_years']} года · языки: {esc(', '.join(c['languages']))}\n\n"
-        f"🎯 <b>Целевые роли:</b> {esc('; '.join(roles))}\n"
-        f"🛠 <b>Топ-скиллы:</b> {esc(', '.join(strong))}\n"
-        f"📚 <b>Изучаю:</b> {esc(', '.join(p['skills']['learning'][:7]))}\n"
-        f"💰 <b>Минимум:</b> {sal['min_uop_gross']} UoP брутто / {sal['min_b2b_net']} B2B нетто\n"
+        f"👤 <b>{esc(c['name'])}</b>\n{esc(cv.title or c['current_title'])}\n\n"
+        f"<b>Summary</b>\n{esc(cv.summary)}\n\n"
+        f"🛠 <b>Топ-скиллы</b>\n{skills}\n\n"
+        f"💰 Минимум: {sal['min_uop_gross']} UoP брутто / {sal['min_b2b_net']} B2B нетто · "
         f"📍 {esc(p['location']['home'].title())} или remote"
     )
-    await update.message.reply_text(text, parse_mode=HTML)
+    kb = InlineKeyboardMarkup([[InlineKeyboardButton("📄 Full CV", callback_data="cv:full")]])
+    await update.message.reply_text(text[:4000], parse_mode=HTML, reply_markup=kb)
 
 
 # ── кнопки ──────────────────────────────────────────────────────────────
@@ -415,6 +420,15 @@ async def on_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             await q.edit_message_reply_markup(reply_markup=keyboard(row))
         except Exception:
             pass
+        return
+
+    if data == "cv:full":
+        await q.answer()
+        if CV_PATH.exists():
+            with CV_PATH.open("rb") as f:
+                await context.bot.send_document(q.message.chat_id, f, filename="Danylo_Shylkov_CV.md")
+        else:
+            await context.bot.send_message(q.message.chat_id, "data/cv.md не найден")
         return
 
     if data.startswith("pg:"):

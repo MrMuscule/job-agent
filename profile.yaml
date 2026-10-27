@@ -22,7 +22,7 @@ target_roles:
   - {weight: 10, patterns: ["storage engineer", "storage administrator", "san engineer", "storage specialist", "backup engineer", "administrator macierzy", "inżynier storage"]}
   - {weight: 9,  patterns: ["linux administrator", "linux system administrator", "linux engineer", "system administrator", "systems engineer", "administrator systemów", "administrator linux"]}
   - {weight: 8,  patterns: ["infrastructure engineer", "infrastructure specialist", "data center engineer", "datacenter", "virtualization engineer", "vmware"]}
-  - {weight: 7,  patterns: ["noc engineer", "l2 support", "second line", "2nd line", "technical support engineer", "application support", "production support", "telecom", "oss/bss", "charging"]}
+  - {weight: 7,  patterns: ["noc engineer", "l2 support", "second line", "2nd line", "technical support engineer", "application support", "production support", "telecom", "oss/bss", "charging", "online charging", "billing support"]}
   - {weight: 5,  patterns: ["cloud support", "cloud engineer", "junior devops", "devops engineer", "site reliability", "platform engineer"]}
 
 skills:
@@ -31,7 +31,13 @@ skills:
      linux, ubuntu, suse, rhel, bash, systemd, ntp, virtualization, fusioncompute, hyper-v,
      docker, ansible, "github actions", git, prometheus, grafana, nginx, python,
      tcp/ip, dns, vlan, vpn, firewall, wireshark,
-     itil, itsm, incident, "change management", "on-call", maintenance, upgrade, cve, patching]
+     itil, itsm, incident, "change management", "on-call", maintenance, upgrade, cve, patching,
+     # из CV (data/cv.md)
+     dorado, pacific, "hybrid flash", hypermetro, "nvme-of", "lun provisioning", firmware, rma,
+     vmtools, ibmc, smartkit, digitalview, "dme iq", devicemanager, "device manager", ideploy,
+     mop, sles, chrony, journalctl, zookeeper, ocs, "online charging", charging, "oss/bss", telecom,
+     dr, "disaster recovery", backup, psirt, rca, "docker compose", "node exporter",
+     dhcp, nat, "static routing", "windows server", hcia, hcsa, "high availability"]
   learning:   # уже изучаю, не должно отсеивать (+1)
     [kubernetes, terraform, postgresql, kafka, zabbix, aws, azure, gcp, vmware, veeam, commvault]
   gaps:       # если это ГЛАВНОЕ требование, ставь штраф -5, но не отсеивай
@@ -65,6 +71,7 @@ bonus:
   - {pattern: "ukrainian|ukraiński|russian|rosyjski", points: 5, why: "редкий язык — твоё преимущество"}
   - {pattern: "huawei|oceanstor|telecom|operator", points: 4, why: "прямой опыт"}
   - {pattern: "bank|banking|finance", points: 2, why: "банки много нанимают storage/linux"}
+  - {pattern: 'oss/bss|charging|\bocs\b|telecom operator', points: 4, why: "телеком-биллинг (OCS/charging) — твой опыт"}
 
 # Настройки бота (не часть профиля кандидата)
 bot:
