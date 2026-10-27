@@ -15,20 +15,13 @@ last_run.json
 # Python
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
-.Python
+*.egg-info/
 build/
 dist/
-*.egg-info/
-
-# Playwright
-.pw-browser/
 
 # IDE
 .vscode/
 .idea/
-*.swp
 .DS_Store
 
 # Резервные копии
